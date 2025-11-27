@@ -6,8 +6,12 @@ export default function Home() {
         second
       </h1>
 
-      <p className="text-gray-600 mb-8">
+      <p className="text-gray-600 mb-3">
         Simple, fast & free JSON → TOON converter
+      </p>
+
+      <p className="text-green-700 font-medium mb-8">
+        📉 Reduce your LLM token usage by up to <span className="font-bold">40%</span> instantly
       </p>
 
       <div className="flex gap-4">
