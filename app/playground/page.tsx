@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 
 export default function PlaygroundPage() {
   const [jsonInput, setJsonInput] = useState("");
@@ -11,6 +12,9 @@ export default function PlaygroundPage() {
   const approxTokens = (text: string) => {
     return Math.ceil(text.trim().length / 4);
   };
+
+  const jsonTokens = approxTokens(jsonInput);
+  const toonTokens = approxTokens(toonOutput);
 
   // ---------------------------------------------------------
   // AUTO CONVERT WHEN JSON IS VALID
@@ -57,22 +61,27 @@ export default function PlaygroundPage() {
       setToonOutput(data.toon);
 
       // Token savings
-      const jsonTokens = approxTokens(jsonInput);
-      const toonTokens = approxTokens(data.toon);
-      const saved = jsonTokens - toonTokens;
+      const jsonT = approxTokens(jsonInput);
+      const toonT = approxTokens(data.toon);
+      const saved = jsonT - toonT;
 
       setSavedTokens(saved > 0 ? saved : 0);
-    }, 500); // <- 500ms debounce
+    }, 500);
 
     return () => clearTimeout(timeout);
   }, [jsonInput]);
 
-  // ---------------------------------------------------------
-  // COPY FUNCTION
-  // ---------------------------------------------------------
+  // Copy helper
   const copy = (text: string) => {
     navigator.clipboard.writeText(text);
+    toast.success("Copied!");
   };
+
+  // % savings
+  const percentSaved =
+    savedTokens && jsonTokens > 0
+      ? ((savedTokens / jsonTokens) * 100).toFixed(2)
+      : "0";
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -97,6 +106,11 @@ export default function PlaygroundPage() {
           >
             Copy
           </button>
+
+          {/* JSON Token Count */}
+          <p className="text-sm text-gray-600 mt-2">
+            Tokens: <span className="font-semibold">{jsonTokens}</span>
+          </p>
         </div>
 
         {/* TOON OUTPUT */}
@@ -113,18 +127,27 @@ export default function PlaygroundPage() {
           >
             Copy
           </button>
+
+          {/* TOON Token Count + % Savings */}
+          <p className="text-sm text-gray-600 mt-2">
+            Tokens: <span className="font-semibold">{toonTokens}</span>{" "}
+            {savedTokens !== null && (
+              <span className="text-green-700 ml-2">
+                (Saved {percentSaved}%)
+              </span>
+            )}
+          </p>
         </div>
       </div>
 
-      {/* TOKEN SAVINGS */}
+      {/* TOTAL SAVINGS BOX */}
       {savedTokens !== null && (
         <div className="mt-6 p-4 bg-green-100 border border-green-300 rounded text-green-700 font-medium">
           🎉 With this TOON format, you saved approximately{" "}
           <span className="font-bold">{savedTokens}</span> tokens!
           <br />
-          {/* Cost Savings */}
           {(() => {
-            const costPerToken = 0.000002; // <-- 1 token = $0.000002 (adjust anytime)
+            const costPerToken = 0.000002;
             const dollarsSaved = savedTokens * costPerToken;
 
             return (

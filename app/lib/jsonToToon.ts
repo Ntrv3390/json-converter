@@ -3,16 +3,9 @@ function isISODateString(value: any): boolean {
   return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/.test(value);
 }
 
-// Flatten an object into "key,value,key,value"
-function flattenObject(obj: any): string {
-  return Object.entries(obj)
-    .map(([k, v]) => `${k},${v}`)
-    .join(",");
-}
-
 export function jsonToToon(obj: any, indent = 0): string {
   const space = "  ".repeat(indent);
-  let output = "";
+  let out = "";
 
   const isPrimitive = (v: any) =>
     v === null ||
@@ -20,65 +13,106 @@ export function jsonToToon(obj: any, indent = 0): string {
     typeof v === "number" ||
     typeof v === "boolean";
 
-  // 🟦 PRIMITIVES
-  if (isPrimitive(obj)) {
+  // -----------------------------
+  // PRIMITIVE
+  // -----------------------------
+  if (isPrimitive(obj) || isISODateString(obj)) {
     return `${obj}`;
   }
 
-  // 🟧 ARRAYS
+  // -----------------------------
+  // ARRAY
+  // -----------------------------
   if (Array.isArray(obj)) {
-    return obj
-      .map((item) => {
-        const lineIndent = "  ".repeat(indent);
+    if (obj.length === 0) return `${space}[]`;
 
-        if (isPrimitive(item) || isISODateString(item)) {
-          return `${lineIndent}${item}`;
+    const allObjects = obj.every(
+      (item) => typeof item === "object" && item !== null && !Array.isArray(item)
+    );
+
+    // ---------------------------------------
+    // CASE 1: ARRAY OF OBJECTS
+    // ---------------------------------------
+    if (allObjects) {
+      const firstKeys = Object.keys(obj[0]);
+
+      const allSameKeys = obj.every(
+        (item) =>
+          JSON.stringify(Object.keys(item)) === JSON.stringify(firstKeys)
+      );
+
+      // ----- TABLE MODE (same keys)
+      if (allSameKeys) {
+        out += `${space}[${obj.length}]{${firstKeys.join(",")}}:\n`;
+
+        obj.forEach((item) => {
+          const row = firstKeys.map((k) => item[k]).join(",");
+          out += `${space}  ${row}\n`;
+        });
+
+        return out.trimEnd();
+      }
+
+      // ----- EXPANDED MODE (different keys)
+      out += `${space}[${obj.length}]:\n`;
+      obj.forEach((item) => {
+        out += `${space}  -\n`;
+        for (const [k, v] of Object.entries(item)) {
+          if (isPrimitive(v) || isISODateString(v)) {
+            out += `${space}    ${k}: ${v}\n`;
+          } else if (Array.isArray(v)) {
+            out += `${space}    ${k}:\n`;
+            out += jsonToToon(v, indent + 3) + "\n";
+          } else {
+            out += `${space}    ${k}:\n`;
+            out += jsonToToon(v, indent + 3) + "\n";
+          }
         }
+      });
 
-        if (Array.isArray(item)) {
-          // Nested array
-          return `${lineIndent}${jsonToToon(item, indent + 1)}`;
-        }
+      return out.trimEnd();
+    }
 
-        // Object inside array → flatten
-        if (typeof item === "object") {
-          return `${lineIndent}${flattenObject(item)}`;
-        }
+    // ---------------------------------------
+    // CASE 2: PRIMITIVE / MIXED ARRAY
+    // ---------------------------------------
+    out += `${space}[${obj.length}]:\n`;
+    obj.forEach((item) => {
+      out += `${space}  ${jsonToToon(item, indent + 1)}\n`;
+    });
 
-        return `${lineIndent}${item}`;
-      })
-      .join("\n");
+    return out.trimEnd();
   }
 
-  // 🟥 OBJECTS
+  // -----------------------------
+  // OBJECT
+  // -----------------------------
   if (typeof obj === "object") {
     for (const key of Object.keys(obj)) {
-      const value = obj[key];
+      const val = obj[key];
 
-      // ISO date → print as normal
-      if (isISODateString(value)) {
-        output += `${space}${key},${value}\n`;
+      // PRIMITIVE
+      if (isPrimitive(val) || isISODateString(val)) {
+        out += `${space}${key}: ${val}\n`;
         continue;
       }
 
       // ARRAY
-      if (Array.isArray(value)) {
-        output += `${space}${key}[${value.length}],\n`;
-        output += jsonToToon(value, indent + 1) + "\n";
+      if (Array.isArray(val)) {
+        const arrayFormatted = jsonToToon(val, indent + 1);
+
+        out += `${space}${key}:\n`;
+        out += arrayFormatted + "\n";
         continue;
       }
 
       // OBJECT
-      if (typeof value === "object" && value !== null) {
-        output += `${space}${key},\n`;
-        output += jsonToToon(value, indent + 1);
-        continue;
-      }
-
-      // PRIMITIVE
-      output += `${space}${key},${value}\n`;
+      out += `${space}${key}:\n`;
+      out += jsonToToon(val, indent + 1) + "\n";
     }
+
+    return out.trimEnd();
   }
 
-  return output;
+  return `${obj}`;
 }
